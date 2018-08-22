@@ -61,7 +61,6 @@ public class DownloadTask implements Runnable {
     public Map<Object, DownloadListener> listeners;
     private ThreadPoolExecutor executor;
     private PriorityRunnable priorityRunnable;
-    private boolean registed;
 
     public DownloadTask(String tag, Request<File, ? extends Request> request) {
         HttpUtils.checkNotNull(tag, "tag == null");
@@ -122,9 +121,15 @@ public class DownloadTask implements Runnable {
         return this;
     }
 
-    public DownloadTask register(DownloadListener listener) {
-        registed = true;
+    public DownloadTask save() {
+        if (!TextUtils.isEmpty(progress.folder) && !TextUtils.isEmpty(progress.fileName)) {
+            progress.filePath = new File(progress.folder, progress.fileName).getAbsolutePath();
+        }
         DownloadManager.getInstance().replace(progress);
+        return this;
+    }
+
+    public DownloadTask register(DownloadListener listener) {
         if (listener != null) {
             listeners.put(listener.tag, listener);
         }
@@ -141,24 +146,29 @@ public class DownloadTask implements Runnable {
         listeners.remove(tag);
     }
 
-    public DownloadTask start() {
-        if (!registed) throw new IllegalStateException("you must call DownloadTask#register() first！");
+    public void start() {
+        if (OkDownload.getInstance().getTask(progress.tag) == null || DownloadManager.getInstance().get(progress.tag) == null) {
+            throw new IllegalStateException("you must call DownloadTask#save() before DownloadTask#start()！");
+        }
         if (progress.status == Progress.NONE || progress.status == Progress.PAUSE || progress.status == Progress.ERROR) {
             postOnStart(progress);
             postWaiting(progress);
             priorityRunnable = new PriorityRunnable(progress.priority, this);
             executor.execute(priorityRunnable);
         } else if (progress.status == Progress.FINISH) {
-            File file = new File(progress.filePath);
-            if (file.exists() && file.length() == progress.totalSize) {
-                postOnFinish(progress, new File(progress.filePath));
+            if (progress.filePath == null) {
+                postOnError(progress, new StorageException("the file of the task with tag:" + progress.tag + " may be invalid or damaged, please call the method restart() to download again！"));
             } else {
-                postOnError(progress, new StorageException("the file " + progress.filePath + " may be invalid or damaged, please call the method restart() to download again！"));
+                File file = new File(progress.filePath);
+                if (file.exists() && file.length() == progress.totalSize) {
+                    postOnFinish(progress, new File(progress.filePath));
+                } else {
+                    postOnError(progress, new StorageException("the file " + progress.filePath + " may be invalid or damaged, please call the method restart() to download again！"));
+                }
             }
         } else {
             OkLogger.w("the task with tag " + progress.tag + " is already in the download queue, current task status is " + progress.status);
         }
-        return this;
     }
 
     public void restart() {
@@ -271,7 +281,10 @@ public class DownloadTask implements Runnable {
             postOnError(progress, OkGoException.BREAKPOINT_EXPIRED());
             return;
         }
-        if (startPosition == progress.totalSize && startPosition >= 0) {
+        if (startPosition == 0 && file.exists()) {
+            IOUtils.delFileOrFolder(file);
+        }
+        if (startPosition == progress.totalSize && startPosition > 0) {
             if (file.exists() && startPosition == file.length()) {
                 postOnFinish(progress, file);
                 return;
@@ -292,6 +305,7 @@ public class DownloadTask implements Runnable {
             return;
         }
         try {
+            DownloadManager.getInstance().replace(progress);
             download(body.byteStream(), randomAccessFile, progress);
         } catch (IOException e) {
             postOnError(progress, e);

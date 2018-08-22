@@ -80,11 +80,6 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.ViewHo
         if (type == TYPE_ALL) values = OkDownload.restore(DownloadManager.getInstance().getAll());
         if (type == TYPE_FINISH) values = OkDownload.restore(DownloadManager.getInstance().getFinished());
         if (type == TYPE_ING) values = OkDownload.restore(DownloadManager.getInstance().getDownloading());
-
-        for (DownloadTask value : values) {
-            value.register(null);
-        }
-
         notifyDataSetChanged();
     }
 
@@ -97,10 +92,10 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.ViewHo
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
         DownloadTask task = values.get(position);
-        String holderTag = type + "_" + task.progress.tag;
-        task.register(new ListDownloadListener(holderTag, holder))//
+        String tag = createTag(task);
+        task.register(new ListDownloadListener(tag, holder))//
                 .register(new LogDownloadListener());
-        holder.setTag(holderTag);
+        holder.setTag(tag);
         holder.setTask(task);
         holder.bind();
         holder.refresh(task.progress);
@@ -109,8 +104,12 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.ViewHo
     public void unRegister() {
         Map<String, DownloadTask> taskMap = OkDownload.getInstance().getTaskMap();
         for (DownloadTask task : taskMap.values()) {
-            task.unRegister("ListDownloadListener_" + type);
+            task.unRegister(createTag(task));
         }
+    }
+
+    private String createTag(DownloadTask task) {
+        return type + "_" + task.progress.tag;
     }
 
     @Override
@@ -175,13 +174,8 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.ViewHo
                     download.setText("等待");
                     break;
                 case Progress.FINISH:
-                    if (ApkUtils.isAvailable(context, new File(progress.filePath))) {
-                        download.setText("卸载");
-                    } else {
-                        download.setText("安装");
-                    }
-                    download.setText("完成");
                     netSpeed.setText("下载完成");
+                    download.setText("完成");
                     break;
                 case Progress.LOADING:
                     String speed = Formatter.formatFileSize(context, progress.speed);

@@ -41,16 +41,12 @@ import com.lzy.demo.model.ApkModel;
 import com.lzy.okgo.OkGo;
 import com.lzy.okgo.db.DownloadManager;
 import com.lzy.okgo.model.Progress;
-import com.lzy.okgo.request.PostRequest;
+import com.lzy.okgo.request.GetRequest;
 import com.lzy.okserver.OkDownload;
-
-import org.json.JSONObject;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import butterknife.Bind;
 import butterknife.ButterKnife;
@@ -84,7 +80,7 @@ public class DownloadListActivity extends BaseActivity {
 
         initData();
         OkDownload.getInstance().setFolder(Environment.getExternalStorageDirectory().getAbsolutePath() + "/aaa/");
-        OkDownload.getInstance().getThreadPool().setCorePoolSize(1);
+        OkDownload.getInstance().getThreadPool().setCorePoolSize(3);
 
         folder.setText(String.format("下载路径: %s", OkDownload.getInstance().getFolder()));
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -124,20 +120,15 @@ public class DownloadListActivity extends BaseActivity {
         for (ApkModel apk : apks) {
 
             //这里只是演示，表示请求可以传参，怎么传都行，和okgo使用方法一样
-            Map<String, String> map = new HashMap<>();
-            map.put("a", "1");
-            map.put("b", "2");
-            map.put("c", "3");
-            JSONObject jsonObject = new JSONObject(map);
-            PostRequest<File> request = OkGo.<File>post(apk.url)//
+            GetRequest<File> request = OkGo.<File>get(apk.url)//
                     .headers("aaa", "111")//
-                    .params("bbb", "222")//
-                    .upJson(jsonObject);
+                    .params("bbb", "222");
 
             //这里第一个参数是tag，代表下载任务的唯一标识，传任意字符串都行，需要保证唯一,我这里用url作为了tag
             OkDownload.request(apk.url, request)//
                     .priority(apk.priority)//
                     .extra1(apk)//
+                    .save()//
                     .register(new LogDownloadListener())//
                     .start();
             adapter.notifyDataSetChanged();
@@ -202,20 +193,15 @@ public class DownloadListActivity extends BaseActivity {
         public void download() {
 
             //这里只是演示，表示请求可以传参，怎么传都行，和okgo使用方法一样
-            Map<String, String> map = new HashMap<>();
-            map.put("a", "1");
-            map.put("b", "2");
-            map.put("c", "3");
-            JSONObject jsonObject = new JSONObject(map);
-            PostRequest<File> request = OkGo.<File>post(apk.url)//
+            GetRequest<File> request = OkGo.<File>get(apk.url)//
                     .headers("aaa", "111")//
-                    .params("bbb", "222")//
-                    .upJson(jsonObject);
+                    .params("bbb", "222");
 
             //这里第一个参数是tag，代表下载任务的唯一标识，传任意字符串都行，需要保证唯一,我这里用url作为了tag
             OkDownload.request(apk.url, request)//
                     .priority(apk.priority)//
                     .extra1(apk)//
+                    .save()//
                     .register(new LogDownloadListener())//
                     .start();
             adapter.notifyDataSetChanged();
